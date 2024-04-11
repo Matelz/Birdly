@@ -6,7 +6,7 @@ This is a really small project just made so I could learn **GO**, it's not compl
 
 It was made using some really cool go packages for **TUI** such as: [lipgloss](https://github.com/charmbracelet/lipgloss) and [bubbletea](https://github.com/charmbracelet/bubbletea)
 
-![alt text](WindowsTerminal_1mG6QGd9vA.gif)
+![alt text](example.gif)
 
 ## Install
 
