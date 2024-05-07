@@ -44,12 +44,12 @@ func HandleMessages(conn *websocket.Conn, sub chan struct{}) {
 		}
 
 		switch string(msg) {
-		case "new_user":
-			other.Messages = append(other.Messages, "New user joined")
-		case "user_disconnected":
-			other.Messages = append(other.Messages, "User disconnected")
-		default:
-			other.Messages = append(other.Messages, string(msg))
+			case "new_user":
+				other.Messages = append(other.Messages, "New user joined")
+			case "user_disconnected":
+				other.Messages = append(other.Messages, "User disconnected")
+			default:
+				other.Messages = append(other.Messages, string(msg))
 		}
 
 		sub <- struct{}{}

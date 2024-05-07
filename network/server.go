@@ -13,6 +13,7 @@ type user struct {
 	name string
 }
 
+var users = make(map[int]user)
 var clients = make(map[*websocket.Conn]user)
 
 var Connection *websocket.Conn
@@ -34,6 +35,7 @@ func CreateServer() {
 			_, msg, err := conn.ReadMessage()
 			if err != nil {
 				delete(clients, conn)
+				delete(users, clients[conn].id)
 
 				broadcastMessage([]byte("user_disconnected"))
 				return
@@ -45,6 +47,8 @@ func CreateServer() {
 					id:   len(clients),
 					name: "User",
 				}
+
+				users[len(clients)] = clients[conn]
 			}
 
 			broadcastMessage(msg)
