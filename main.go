@@ -2,14 +2,13 @@ package main
 
 import (
 	"example/network"
-	"example/other"
+	"example/styles"
 	"fmt"
 	"os"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 var sub chan struct{} = make(chan struct{})
@@ -20,8 +19,10 @@ type model struct {
 	height   int
 	viewport viewport.Model
 	done	bool
-	messages []string
+	messages []network.Message
 	input	textinput.Model
+	header	string
+	footer	string
 }
 
 type responseMsg struct{}
@@ -58,7 +59,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if !m.done {
 			m.viewport.Init()
-			m.viewport.Style.Border(lipgloss.BlockBorder())
+			m.viewport.Style = styles.ChatStyle
+			m.input.Width = msg.Width - 5
+
 			m.done = true
 		}
 		return m, nil
@@ -73,7 +76,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case responseMsg:
-		m.messages = other.Messages
+		m.messages = network.Messages
 		return m, waitForActivity(m.sub)
 	}
 
@@ -85,12 +88,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	all := ""
 	for _, msg := range m.messages {
-		all += msg + "\n"
+		all += styles.MessageFormat(msg)
 	}
 	m.viewport.SetContent(all)
 	m.viewport.GotoBottom()
 
-	return fmt.Sprintf("%s\n%s",m.viewport.View(),m.input.View())
+	return fmt.Sprintf("%s\n%s\n%s\n%s", styles.Header, m.viewport.View(), styles.ChatStyle.Render(m.input.View()), styles.Footer)
 }
 
 func (m model) Init() tea.Cmd {

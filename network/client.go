@@ -1,12 +1,17 @@
 package network
 
 import (
-	"example/other"
 	"log"
 	"net/url"
 
 	"github.com/gorilla/websocket"
 )
+
+type Message struct {
+	UserID  int
+	Message  string
+	MessageType  int
+}
 
 func ConnectToServer(sub chan struct{}) {
 	u := url.URL{
@@ -28,7 +33,13 @@ func ConnectToServer(sub chan struct{}) {
 
 	Connection = conn
 
-	if err := Connection.WriteMessage(websocket.TextMessage, []byte("new_user")); err != nil {
+	pkg := packager(messagePayload{
+		UserID:  Clients[Connection].id,
+		Data:   "",
+		MessageType:  2,
+	})
+
+	if err := Connection.WriteMessage(websocket.TextMessage, []byte(pkg)); err != nil {
 		log.Println(err)
 	}
 
@@ -43,21 +54,44 @@ func HandleMessages(conn *websocket.Conn, sub chan struct{}) {
 			return
 		}
 
-		switch string(msg) {
-			case "new_user":
-				other.Messages = append(other.Messages, "New user joined")
-			case "user_disconnected":
-				other.Messages = append(other.Messages, "User disconnected")
-			default:
-				other.Messages = append(other.Messages, string(msg))
+		newMessage := unPackager(msg)
+
+		switch newMessage.MessageType {
+		case 1:
+			Messages = append(Messages, Message{
+				UserID:  newMessage.UserID,
+				Message: newMessage.Data,
+				MessageType:  newMessage.MessageType,
+			})
+		case 2:
+		
+			
+			Messages = append(Messages, Message{
+				UserID:  newMessage.UserID,
+				Message: "joined the chat",
+				MessageType:  newMessage.MessageType,
+			})
+		case 3:
+			Messages = append(Messages, Message{
+				UserID:  newMessage.UserID,
+				Message: "left the chat",
+				MessageType:  newMessage.MessageType,
+			})
 		}
+
 
 		sub <- struct{}{}
 	}
 }
 
 func SendMessage(msg string) {
-	err := Connection.WriteMessage(websocket.TextMessage, []byte(msg))
+	pkg := packager(messagePayload{
+		UserID: Clients[Connection].id,
+		Data:   msg,
+		MessageType:  1,
+	})
+
+	err := Connection.WriteMessage(websocket.TextMessage, []byte(pkg))
 	if err != nil {
 		log.Println(err)
 	}

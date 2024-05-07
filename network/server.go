@@ -1,6 +1,7 @@
 package network
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 
@@ -10,11 +11,19 @@ import (
 type user struct {
 	conn *websocket.Conn
 	id   int
-	name string
+	Name string
 }
 
-var users = make(map[int]user)
-var clients = make(map[*websocket.Conn]user)
+type messagePayload struct {
+	UserID  int
+	Data 	string
+	MessageType   int
+}
+
+var Users = make(map[int]user)
+var Clients = make(map[*websocket.Conn]user)
+
+var Messages []Message
 
 var Connection *websocket.Conn
 
@@ -34,24 +43,30 @@ func CreateServer() {
 		for {
 			_, msg, err := conn.ReadMessage()
 			if err != nil {
-				delete(clients, conn)
-				delete(users, clients[conn].id)
+				delete(Clients, conn)
+				delete(Users, Clients[conn].id)
 
-				broadcastMessage([]byte("user_disconnected"))
+				broadcastMessage(packager(messagePayload{
+					UserID:  Clients[conn].id,
+					Data:   "",
+					MessageType:  3,
+				}))
 				return
 			}
 
-			if string(msg) == "new_user" {
-				clients[conn] = user{
+			pkg := unPackager(msg);
+
+			if pkg.MessageType == 2 {
+				Clients[conn] = user{
 					conn: conn,
-					id:   len(clients),
-					name: "User",
+					id:   len(Clients),
+					Name: "User",
 				}
 
-				users[len(clients)] = clients[conn]
+				Users[len(Clients)] = Clients[conn]
 			}
 
-			broadcastMessage(msg)
+			broadcastMessage(packager(pkg))
 		}
 	})
 
@@ -59,10 +74,21 @@ func CreateServer() {
 }
 
 func broadcastMessage(msg []byte) {
-	for client := range clients {
+	for client := range Clients {
 		err := client.WriteMessage(websocket.TextMessage, msg)
 		if err != nil {
 			log.Printf("Error broadcasting message: %v", err)
 		}
 	}
+}
+
+func packager(message messagePayload) []byte {
+	pkg, _ := json.Marshal(message)
+	return pkg
+}
+
+func unPackager(msg []byte) messagePayload {
+	pkg := messagePayload{}
+	json.Unmarshal(msg, &pkg)
+	return pkg
 }
