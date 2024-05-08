@@ -23,9 +23,17 @@ var me user = user{
 }
 
 func ConnectToServer(ip string, port string, name string, sub chan struct{}) {
+	var h string
+	
+	if port != ""{
+		h = fmt.Sprintf("%s:%s", ip, port)
+	} else {
+		h = ip
+	}
+
 	u := url.URL{
 		Scheme: "ws",
-		Host:   fmt.Sprintf("%s:%s", ip, port),
+		Host:   h,
 		Path:   "/ws",
 	}
 
