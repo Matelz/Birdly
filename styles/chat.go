@@ -1,7 +1,7 @@
 package styles
 
 import (
-	"example/network"
+	"birdly/network"
 	"fmt"
 
 	"github.com/charmbracelet/lipgloss"
@@ -34,7 +34,7 @@ var Footer = HeaderStyle.Render("https://github.com/Matelz/Birdly")
 
 func MessageFormat(message network.Message) string {
 	var res string
-	var user = network.Users[message.UserID + 1]
+	var user = network.Users[message.UserID]
 
 	switch message.MessageType {
 	case 1:

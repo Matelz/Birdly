@@ -1,6 +1,7 @@
 package network
 
 import (
+	"fmt"
 	"log"
 	"net/url"
 
@@ -8,15 +9,23 @@ import (
 )
 
 type Message struct {
-	UserID  int
+	UserID  string
 	Message  string
 	MessageType  int
 }
 
-func ConnectToServer(sub chan struct{}) {
+var uConn *websocket.Conn
+
+var me user = user{
+	Conn: nil,
+	Id:   "",
+	Name: "",
+}
+
+func ConnectToServer(ip string, port string, name string, sub chan struct{}) {
 	u := url.URL{
 		Scheme: "ws",
-		Host:   "localhost:8080",
+		Host:   fmt.Sprintf("%s:%s", ip, port),
 		Path:   "/ws",
 	}
 
@@ -31,19 +40,28 @@ func ConnectToServer(sub chan struct{}) {
 		return
 	}
 
-	Connection = conn
+	uConn = conn
+
+	me = user{
+		Conn: conn,
+		Id:   generateUUID(),
+		Name: name,
+	}
 
 	pkg := packager(messagePayload{
-		UserID:  Clients[Connection].id,
-		Data:   "",
+		UserID:  "",
+		Data:   name,
+		User: 	me,
 		MessageType:  2,
 	})
 
-	if err := Connection.WriteMessage(websocket.TextMessage, []byte(pkg)); err != nil {
+	// log.Println(name)
+
+	if err := uConn.WriteMessage(websocket.TextMessage, []byte(pkg)); err != nil {
 		log.Println(err)
 	}
 
-	HandleMessages(Connection, sub)
+	HandleMessages(uConn, sub)
 }
 
 func HandleMessages(conn *websocket.Conn, sub chan struct{}) {
@@ -64,21 +82,22 @@ func HandleMessages(conn *websocket.Conn, sub chan struct{}) {
 				MessageType:  newMessage.MessageType,
 			})
 		case 2:
-		
-			
 			Messages = append(Messages, Message{
 				UserID:  newMessage.UserID,
 				Message: "joined the chat",
 				MessageType:  newMessage.MessageType,
 			})
+
+			Users = newMessage.NewData.Users
 		case 3:
 			Messages = append(Messages, Message{
 				UserID:  newMessage.UserID,
 				Message: "left the chat",
 				MessageType:  newMessage.MessageType,
 			})
+		case 4:
+			Users = newMessage.NewData.Users
 		}
-
 
 		sub <- struct{}{}
 	}
@@ -86,12 +105,12 @@ func HandleMessages(conn *websocket.Conn, sub chan struct{}) {
 
 func SendMessage(msg string) {
 	pkg := packager(messagePayload{
-		UserID: Clients[Connection].id,
+		UserID: me.Id,
 		Data:   msg,
 		MessageType:  1,
 	})
 
-	err := Connection.WriteMessage(websocket.TextMessage, []byte(pkg))
+	err := uConn.WriteMessage(websocket.TextMessage, []byte(pkg))
 	if err != nil {
 		log.Println(err)
 	}

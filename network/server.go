@@ -2,32 +2,41 @@ package network
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 
 	"github.com/gorilla/websocket"
 )
 
 type user struct {
-	conn *websocket.Conn
-	id   int
+	Conn *websocket.Conn
+	Id   string
 	Name string
 }
 
 type messagePayload struct {
-	UserID  int
+	UserID  string
 	Data 	string
+	NewData NewData
+	User user
 	MessageType   int
 }
 
-var Users = make(map[int]user)
+type NewData struct {
+	Users map[string]user
+	NewSocket *websocket.Conn
+}
+
+var Users = make(map[string]user)
 var Clients = make(map[*websocket.Conn]user)
 
 var Messages []Message
 
 var Connection *websocket.Conn
 
-func CreateServer() {
+func CreateServer(port string) {
 	wsUpgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -40,37 +49,56 @@ func CreateServer() {
 			return
 		}
 
+		// Send the clients and users to the new client
+		if len(Users) > 0 {
+			err = conn.WriteMessage(websocket.TextMessage, packager(messagePayload{
+				UserID:  "server",
+				Data:   "",
+				NewData: NewData{
+					Users: Users,
+				},
+				MessageType:  4,
+			}))
+			if err != nil {
+				log.Println(err)
+				return
+			}
+		}
+
 		for {
 			_, msg, err := conn.ReadMessage()
 			if err != nil {
-				delete(Clients, conn)
-				delete(Users, Clients[conn].id)
-
+				
 				broadcastMessage(packager(messagePayload{
-					UserID:  Clients[conn].id,
+					UserID:  Users[Clients[conn].Id].Id,
 					Data:   "",
 					MessageType:  3,
 				}))
+
+				delete(Clients, conn)
+				delete(Users, Clients[conn].Id)
 				return
 			}
 
+			// log.Println("Received Connection from: ", conn.RemoteAddr().String())
+
 			pkg := unPackager(msg);
-
+			
 			if pkg.MessageType == 2 {
-				Clients[conn] = user{
-					conn: conn,
-					id:   len(Clients),
-					Name: "User",
+				pkg.UserID = pkg.User.Id
+				Clients[conn] = pkg.User
+
+				Users[pkg.User.Id] = Clients[conn]
+
+				pkg.NewData = NewData{
+					Users: Users,
 				}
-
-				Users[len(Clients)] = Clients[conn]
 			}
-
 			broadcastMessage(packager(pkg))
 		}
 	})
 
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":"+port, nil)
 }
 
 func broadcastMessage(msg []byte) {
@@ -91,4 +119,19 @@ func unPackager(msg []byte) messagePayload {
 	pkg := messagePayload{}
 	json.Unmarshal(msg, &pkg)
 	return pkg
+}
+
+func generateUUID() string {
+	for {
+		// Generate a unique id for the user based on the format "XXXX-XXXX"
+		x := rand.Intn(10000)
+		y := rand.Intn(10000)
+
+		uuid := fmt.Sprintf("%04d-%04d", x, y)
+		_, b := Users[uuid]
+
+		if !b {	
+			return uuid 
+		}
+	}
 }

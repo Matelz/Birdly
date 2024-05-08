@@ -1,4 +1,4 @@
-module example
+module birdly
 
 go 1.22.2
 

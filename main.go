@@ -1,10 +1,14 @@
 package main
 
 import (
-	"example/network"
-	"example/styles"
+	"birdly/network"
+	"birdly/styles"
+	"flag"
 	"fmt"
+	"log"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -34,8 +38,6 @@ func waitForActivity(sub chan struct{}) tea.Cmd {
 }
 
 func NewModel() model {
-	go network.ConnectToServer(sub)
-
 	ti := textinput.New()
 	ti.Placeholder = "Type something..."
 	ti.Focus()
@@ -56,11 +58,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.viewport.Width = msg.Width
 		m.viewport.Height = msg.Height - 18
+		m.input.Width = msg.Width - 5
 
 		if !m.done {
 			m.viewport.Init()
 			m.viewport.Style = styles.ChatStyle
-			m.input.Width = msg.Width - 5
+			m.viewport.MouseWheelEnabled = true
 
 			m.done = true
 		}
@@ -70,8 +73,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		case "enter":
-			if m.input.Value() != "" {
-				network.SendMessage(m.input.Value())
+			trimmed := strings.TrimSpace(m.input.Value())
+			if trimmed != "" {
+				network.SendMessage(trimmed)
 				m.input.Reset()
 			}
 		}
@@ -90,8 +94,10 @@ func (m model) View() string {
 	for _, msg := range m.messages {
 		all += styles.MessageFormat(msg)
 	}
+	
 	m.viewport.SetContent(all)
 	m.viewport.GotoBottom()
+	m.viewport.LineDown(1)
 
 	return fmt.Sprintf("%s\n%s\n%s\n%s", styles.Header, m.viewport.View(), styles.ChatStyle.Render(m.input.View()), styles.Footer)
 }
@@ -103,12 +109,30 @@ func (m model) Init() tea.Cmd {
 }
 
 func main() {
-	if len(os.Args) > 1 {
-		if os.Args[1] == "host" {
-			go network.CreateServer()
-		}
+	// Parse flags
+	flg := flag.NewFlagSet("Birdly", flag.ExitOnError)
+	ip := flg.String("host", "127.0.0.1", "ip used to connect to the server")
+	port := flg.String("port", "8080", "port used to connect/host the server")
+	name := flg.String("name", "anon", "username used in chat")
+
+	args := os.Args
+
+	if len(args) < 2{
+		log.Fatal("Please include a command, eg:. 'connect' | 'host'")
 	}
-	p := tea.NewProgram(NewModel(), tea.WithOutput(os.Stdout))
+
+	switch args[1]{
+		case "host":
+			flg.Parse(args[2:])
+			go network.CreateServer(*port)
+			time.Sleep(5 * time.Second)
+			go network.ConnectToServer("localhost", *port, *name, sub)
+		case "connect":
+			flg.Parse(args[2:])
+			go network.ConnectToServer(*ip, *port, *name, sub)
+	}
+
+	p := tea.NewProgram(NewModel(), tea.WithAltScreen())
     if _, err := p.Run(); err != nil {
         fmt.Printf("Alas, there's been an error: %v", err)
         os.Exit(1)
