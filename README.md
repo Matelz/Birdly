@@ -30,14 +30,28 @@ go build -o birdly <path-to-installation>
 To start Birdly, you need to run the following command:
 
 ```bash
-./birdly
+./birdly.exe <command> ...flags
 ```
 
-or by running the **.exe**
+| Command | Description |
+|---------|-------|
+| host    | Use to host a server, this **will** open a listener on the port you specified (default: 8080) |
+| connect | Use to connect to a server, using this with no flags will connect to the localhost |
 
-To host a server you need to choose the **Host** option on the main menu, it will **print your IP and Port** to the chat so your friends can connect.
+| Flag | Description |
+|------|-------------|
+| --host | Use to set the ip of the server you are connecting (default: 127.0.0.1) |
+| --port | Use to set the port of the server you are connecting or hosting (default: 8080) |
+| --name | Use to set the your username in the chat (default: anon) |
 
-To connect to a server you need to choose the **Connect** option on the main menu, then you need to input the **IP and Port** of the server you want to connect to.
+**Example:**
+```bash
+./birdly.exe host --name=john --port=25565
+```
+
+```bash
+./birdly.exe connect --name=doe --host=192.168.0.5 --port=25565
+```
 
 ## 📝 License
 
