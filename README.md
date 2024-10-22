@@ -6,14 +6,15 @@
  / /_/ / / /  / /_/ / / /_/ / 
 /_____/_/_/   \__,_/_/\__, /  
                      /____/   
+2.0!!
 </pre>
 </p>
 
 # 🐦 A terminal based chat client.
 
-Birdly is a **P2P** _(Peer-To-Peer)_ chat client that allows you to chat with your friends in a terminal. It uses **TCP** sockets to establish a connection between two clients and then allows them to chat with each other.
+Birdly is a **P2P** _(Peer-To-Peer)_ chat client that allows you to chat with your friends in a terminal. It uses **Websockets** to establish a connection between two clients and then allows them to chat with each other.
 
-It is built using **Go** and some [charmbracelet's](https://github.com/charmbracelet/) libraries like **bubbletea** and **lipgloss** witch makes it more **_gramourous_**.
+It's built using **Go** and some [charmbracelet's](https://github.com/charmbracelet/) libraries like **bubbletea** and **lipgloss**. 
 
 ## 📦 Installation
 
