@@ -31,16 +31,27 @@ import (
 
 // It can also send a private message to someone by using the command (:pm <to> <message>)
 
+type argument struct {
+	name string
+	required bool
+	// Default value of the argument
+	value any
+}
+
 type command struct {
 	command string
+	// Hint to be shown to the user when he makes a mistake eg: not enough arguments
 	description string
-	function func()
+	args []argument
+	// Function to be called when the command is called
+	function func(m model, args ...interface{}) interface{}
 }
 
 type messageState struct {
 	timestamp string
 	username string
 	message string
+	_type int
 }
 
 type roomState struct {
@@ -58,9 +69,19 @@ type model struct {
 
 var commands = []command {
 	{
-		"pm",
-		"Send private message to user (:pm <to> <message>)",
-		func(){},
+		command: "pm",
+		description: "Send private message to user (:pm <to> <message>)",
+		args: []argument{
+			{
+				name: "to",
+				required: true,
+				value: "",
+			},
+		},
+		function: func(m model, args ...interface{}) interface{} {
+			name := args[0].(string)
+			return name 
+		},
 	},
 }
 
@@ -84,19 +105,65 @@ func initialModel() model {
 	}
 }
 
-func handleCommand(message string) (command string, found bool) {
+func messageFormatter(m messageState) string {
+	infoStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"));
+	infoFormat := fmt.Sprintf("%s - %s %s\n", m.timestamp, m.username, m.message)
+
+	timeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	usernameStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
+
+	normalFormat := fmt.Sprintf("%s %s %s %s\n", timeStyle.Render(m.timestamp), timeStyle.Render("-"), usernameStyle.Render("<<" + m.username + ">>"), m.message)
+
+
+	switch (m._type){
+	// Normal message
+	case 1:
+		return normalFormat 
+	// Info message 
+	case 2:
+		return infoStyle.Render(infoFormat)
+	default:
+		return "error"
+
+	}
+}
+
+func handleCommand(m model) (model) {
 	// Command format (:<command> <arg1> <arg...>)
 	r := regexp.MustCompile(`:[a-zA-Z]{1,}`)
+	message := m.input.Value()
+
 	if cmd := r.FindString(message); cmd != "" {
 		for _, c := range commands {
 			cmd = strings.ReplaceAll(cmd, ":", "")
 			if c.command == cmd {
-				return c.description, true
+				// Extract arguments from message
+				strArgs := strings.Split(message, " ")
+
+				if len(strArgs) - 2 < len(c.args) {
+					// Send 'not enough arguments message'
+				}
+
+				strArgs = strArgs[1:len(strArgs) - 1]
+
+				for i := 0; i < len(c.args); i++ {
+					c.args[i].value = strArgs[i]
+				}
+
+				// Call function
 			}
 		}
 	}
 
-	return "Command not found", false
+	// Send 'command not found' message
+	return m
+}
+
+func (m model) displayMessage(message string, _type int) tea.Model {
+	m.state.messages = append(m.state.messages, messageState{time.Now().Format(time.Kitchen), "anon", message, _type})
+	m.input.Reset()
+
+	return m
 }
 
 func (m model) Init() tea.Cmd {
@@ -107,27 +174,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
-		case tea.WindowSizeMsg:
-			if !m.ready {
-				m.chatbox.Width = msg.Width
-				m.chatbox.Height = msg.Height - 3
+	case tea.WindowSizeMsg:
+		if !m.ready {
+			m.chatbox.Width = msg.Width
+			m.chatbox.Height = msg.Height - 3
 
-				m.input.Width = msg.Width - 5
-				m.ready = true
+			m.input.Width = msg.Width - 5
+			m.ready = true
+		}
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c":
+			return m, tea.Quit
+		case "enter":
+			if string(m.input.Value()[0]) == ":" {
+				return handleCommand(m), cmd
 			}
-		case tea.KeyMsg:
-			switch msg.String() {
-				case "ctrl+c":
-					return m, tea.Quit
-				case "enter":
-					if strings.HasPrefix(m.input.Value(), ":") {
-						cmd, fnd := handleCommand(m.input.Value())
-						if fnd {
-							m.state.messages = append(m.state.messages, messageState{time.Now().Format(time.Kitchen), "anon", fmt.Sprintf("%s found", cmd)})
-						}
-					}
-					m.state.messages = append(m.state.messages, messageState{time.Now().Format(time.Kitchen), "anon", m.input.Value()})
-					m.input.Reset()
+			return m.displayMessage(m.input.Value(), 1), cmd
 		}
 	}
 
@@ -136,14 +199,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-
-	timeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	usernameStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
-
 	var messageString string
 
 	for _, m := range m.state.messages{
-		messageString += fmt.Sprintf("%s %s %s %s\n", timeStyle.Render(m.timestamp), timeStyle.Render("-"), usernameStyle.Render("<<" + m.username + ">>"), m.message)
+		messageString += messageFormatter(m)
 	}
 
 	m.chatbox.SetContent(messageString)
@@ -156,6 +215,6 @@ func main() {
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
-	
+
 	defer p.Quit()
 }
