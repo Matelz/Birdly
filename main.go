@@ -79,8 +79,7 @@ var commands = []command {
 			},
 		},
 		function: func(m model, args ...interface{}) interface{} {
-			name := args[0].(string)
-			return name 
+			return "test function pm\n"
 		},
 	},
 }
@@ -122,41 +121,13 @@ func messageFormatter(m messageState) string {
 	// Info message 
 	case 2:
 		return infoStyle.Render(infoFormat)
+	// Command message
+	case 3:
+		return m.message
 	default:
 		return "error"
 
 	}
-}
-
-func handleCommand(m model) (model) {
-	// Command format (:<command> <arg1> <arg...>)
-	r := regexp.MustCompile(`:[a-zA-Z]{1,}`)
-	message := m.input.Value()
-
-	if cmd := r.FindString(message); cmd != "" {
-		for _, c := range commands {
-			cmd = strings.ReplaceAll(cmd, ":", "")
-			if c.command == cmd {
-				// Extract arguments from message
-				strArgs := strings.Split(message, " ")
-
-				if len(strArgs) - 2 < len(c.args) {
-					// Send 'not enough arguments message'
-				}
-
-				strArgs = strArgs[1:len(strArgs) - 1]
-
-				for i := 0; i < len(c.args); i++ {
-					c.args[i].value = strArgs[i]
-				}
-
-				// Call function
-			}
-		}
-	}
-
-	// Send 'command not found' message
-	return m
 }
 
 func (m model) displayMessage(message string, _type int) tea.Model {
@@ -164,6 +135,37 @@ func (m model) displayMessage(message string, _type int) tea.Model {
 	m.input.Reset()
 
 	return m
+}
+
+func (m model) handleCommand() tea.Model {
+	// Command format (:<command> <arg1> <arg...>)
+	r := regexp.MustCompile(`:[a-zA-Z]{1,}`)
+	message := m.input.Value()
+	var returnModel tea.Model
+
+	if cmd := r.FindString(message); cmd != "" {
+		for _, c := range commands {
+			cmd = strings.ReplaceAll(cmd, ":", "")
+			if c.command == cmd {
+				// Retrieve args from command
+				args := strings.Split(message, " ")
+
+				if len(args) - 2 < len(c.args) {
+					returnModel = m.displayMessage(fmt.Sprintf("Not enough arguments\n%s", c.description), 3)
+					return returnModel
+				}
+
+				args = args[1:len(args) - 1]
+
+
+				returnModel = m.displayMessage(fmt.Sprintf("%s", c.function(m)), 3)
+				return returnModel
+			}
+		}
+	}
+	
+	returnModel = m.displayMessage("Command not found", 2)
+	return returnModel
 }
 
 func (m model) Init() tea.Cmd {
@@ -187,8 +189,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "enter":
+			if m.input.Value() == "" {
+				return m, cmd
+			}
+
 			if string(m.input.Value()[0]) == ":" {
-				return handleCommand(m), cmd
+				return m.handleCommand(), cmd
 			}
 			return m.displayMessage(m.input.Value(), 1), cmd
 		}
