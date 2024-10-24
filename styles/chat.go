@@ -1,7 +1,7 @@
 package styles
 
 import (
-	"birdly/network"
+	"birdly/types"
 	"fmt"
 
 	"github.com/charmbracelet/lipgloss"
@@ -17,33 +17,27 @@ var Title = `
 `
 
 var (
-	TitleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
-
-	ChatStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
-
-	HeaderStyle = lipgloss.NewStyle().Faint(true).Italic(true)
-
-	UsernameStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
-
-	BroadcastStyle = lipgloss.NewStyle().Faint(true).Italic(true)
+	infoStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	timeStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	usernameStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
 )
 
-var Header = fmt.Sprintf("%s\n%s", TitleStyle.Render(Title), HeaderStyle.Render("v1.0.0\nA p2p tui chat client."))
+func MessageFormatter(m types.MessageState) string {
 
-var Footer = HeaderStyle.Render("https://github.com/Matelz/Birdly")
+	switch m.Type {
+	// Normal message
+	case types.NormalMessage:
+		normalFormat := fmt.Sprintf("%s %s %s %s\n", timeStyle.Render(m.Timestamp), timeStyle.Render("-"), usernameStyle.Render("<<"+m.Username+">>"), m.Message)
+		return normalFormat
+		// Info message
+	case types.InfoMessage:
+		infoFormat := fmt.Sprintf("%s - %s %s\n", m.Timestamp, m.Username, m.Message)
+		return infoStyle.Render(infoFormat)
+		// Command message
+	case types.CommandMessage:
+		return m.Message
+	default:
+		return "error"
 
-func MessageFormat(message network.Message) string {
-	var res string
-	var user = network.Users[message.UserID]
-
-	switch message.MessageType {
-	case 1:
-		res = fmt.Sprintf("%s %s", UsernameStyle.Render("<<"+user.Name+">>"), message.Message)
-	case 2, 3:
-		res = BroadcastStyle.Render(fmt.Sprintf("%s %s", user.Name, message.Message))
 	}
-
-	res += "\n"
-
-	return res
 }
